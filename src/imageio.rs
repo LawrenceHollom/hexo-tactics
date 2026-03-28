@@ -20,7 +20,7 @@ const HEX_MASK: [[u8; 11]; 12] = [
 ];
 
 const BORDER_SIZE: u32 = 3;
-const EXTRA_SIZE: usize = 20;
+const EXTRA_SIZE: usize = 40;
 
 fn draw_hex(buffer: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, hex: &Hexagon, x_offset: i32, y_offset: i32) {
     let centre_x = hex.centre_x + x_offset;
