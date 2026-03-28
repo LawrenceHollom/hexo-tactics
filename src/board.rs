@@ -135,7 +135,7 @@ impl Board {
      * We check for preemptives, and start cashing them in.
      */
     pub fn can_current_player_force_two_step_win(&self) -> bool {
-
+        false
     }
 }
 

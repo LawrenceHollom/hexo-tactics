@@ -54,7 +54,7 @@ fn one_move() {
         let game = game::Game::from_json(one_json.to_owned());
         let boards = game.get_forced_wins();
         for board in boards {
-            imageio::print_board(&board, Tactic::OneMove, &format!("{}", i));
+            imageio::print_board(&board, Tactic::OneMove, &format!("{:03}", i));
             i += 1;
         }
     }
@@ -67,7 +67,7 @@ fn two_moves() {
         let game = game::Game::from_json(one_json.to_owned());
         let boards = game.get_two_step_wins();
         for board in boards {
-            imageio::print_board(&board, Tactic::TwoMoves, &format!("{}", i));
+            imageio::print_board(&board, Tactic::TwoMoves, &format!("{:04}", i));
             i += 1;
         }
     }
