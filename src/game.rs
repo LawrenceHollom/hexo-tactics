@@ -89,6 +89,28 @@ impl Game {
         out
     }
 
+    /**
+     * Go through all the boards, and return those where the current
+     * player has two moves remaining and, and can force a win next turn.
+     */
+    pub fn get_two_step_wins(&self) -> Vec<Board> {
+        let mut out = vec![];
+
+        for board in self.boards.iter() {
+            if board.moves_remaining == 2 && !board.is_won {
+                if board.can_current_player_win() {
+                    // We don't care about these.
+                    continue;
+                }
+                if board.can_current_player_force_two_step_win() {
+                    out.push(board.to_owned());
+                }
+            }
+        }
+        
+        out
+    }
+
     pub fn print(&self) {
         for m in &self.moves {
             println!("{:?} at ({}, {})", m.player, m.position.u, m.position.v);

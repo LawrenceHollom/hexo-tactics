@@ -30,6 +30,7 @@ fn get_input() -> String {
     match func.to_lowercase().trim() {
         "test" => test(),
         "one_move" => one_move(),
+        "two_moves" => two_moves(),
         _ => println!("Unknown function {}", func)
     }
     let dur = start.elapsed();
@@ -54,6 +55,19 @@ fn one_move() {
         let boards = game.get_forced_wins();
         for board in boards {
             imageio::print_board(&board, Tactic::OneMove, &format!("{}", i));
+            i += 1;
+        }
+    }
+}
+
+fn two_moves() {
+    let json = fileio::read_json("games");
+    let mut i = 0;
+    for one_json in json.as_array().unwrap().iter() {
+        let game = game::Game::from_json(one_json.to_owned());
+        let boards = game.get_two_step_wins();
+        for board in boards {
+            imageio::print_board(&board, Tactic::TwoMoves, &format!("{}", i));
             i += 1;
         }
     }

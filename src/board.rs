@@ -129,6 +129,14 @@ impl Board {
         }
         false
     }
+
+    /**
+     * We can't just interate over everything as that would be too slow.
+     * We check for preemptives, and start cashing them in.
+     */
+    pub fn can_current_player_force_two_step_win(&self) -> bool {
+
+    }
 }
 
 impl Hexagon {
