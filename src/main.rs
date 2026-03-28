@@ -49,7 +49,7 @@ fn test() {
 fn one_move() {
     let json = fileio::read_json("games");
     let mut i = 0;
-    for one_json in json.as_array().unwrap().iter().take(10) {
+    for one_json in json.as_array().unwrap().iter() {
         let game = game::Game::from_json(one_json.to_owned());
         let boards = game.get_forced_wins();
         for board in boards {
