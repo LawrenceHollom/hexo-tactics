@@ -4,6 +4,8 @@ mod fileio;
 mod utils;
 mod player;
 mod position;
+mod imageio;
+mod pixel;
 
 use std::time;
 use std::io;

@@ -1,13 +1,14 @@
 /**
  * Represents a position in the hexagonal grid.
  */
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Position {
-    pub x: i32,
-    pub y: i32,
+    pub u: i32,
+    pub v: i32,
 }
 
 impl Position {
-    pub fn new(x: i32, y: i32) -> Position {
-        Position { x, y }
+    pub fn new(u: i32, v: i32) -> Position {
+        Position { u, v }
     }
 }
