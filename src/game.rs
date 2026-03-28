@@ -4,6 +4,7 @@ use crate::board::Board;
 use crate::imageio;
 use crate::player::*;
 use crate::position::*;
+use crate::tactic::Tactic;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Move {
@@ -36,14 +37,6 @@ impl Move {
         self.position.v
     }
 
-    pub fn get_x(&self, mid: i32) -> usize {
-        (2 * self.position.u + self.position.v + mid) as usize
-    }
-
-    pub fn get_y(&self, mid: i32) -> usize {
-        (self.position.v + mid) as usize
-    }
-
     pub fn get_player(&self) -> Player {
         self.player
     }
@@ -51,7 +44,7 @@ impl Move {
 
 impl Game {
     pub fn from_json(json: Value) -> Game {
-        println!("{:?}", json.get("moves"));
+        // println!("{:?}", json.get("moves"));
         let players = json.get("players").unwrap().as_array().unwrap();
         let yellow_player = get_player(players, 0);
         let blue_player = get_player(players, 1);
@@ -78,10 +71,28 @@ impl Game {
         Game { moves, boards }
     }
 
+    /**
+     * Go through all the boards, and return those where the current
+     * player has two moves remaining and, and can win this turn.
+     */
+    pub fn get_forced_wins(&self) -> Vec<Board> {
+        let mut out = vec![];
+
+        for board in self.boards.iter() {
+            if board.moves_remaining == 2 && !board.is_won {
+                if board.can_current_player_win() {
+                    out.push(board.to_owned());
+                }
+            }
+        }
+        
+        out
+    }
+
     pub fn print(&self) {
         for m in &self.moves {
             println!("{:?} at ({}, {})", m.player, m.position.u, m.position.v);
         }
-        self.boards.last().map(|b| imageio::print_board(b));
+        self.boards.last().map(|b| imageio::print_board(b, Tactic::Test, "test"));
     }
 }

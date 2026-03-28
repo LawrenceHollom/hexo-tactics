@@ -7,18 +7,11 @@ use std::ops::{Add, Index, Mul};
 pub struct Pixel([f64; 4]);
 
 impl Pixel {
-    pub const BLACK: Pixel = Pixel([0.0, 0.0, 0.0, 1.0]);
-    pub const WHITE: Pixel = Pixel([1.0, 1.0, 1.0, 1.0]);
-    pub const RED: Pixel = Pixel([1.0, 0.0, 0.0, 1.0]);
-    pub const YELLOW: Pixel = Pixel([1.0, 1.0, 0.0, 1.0]);
-    pub const GREEN: Pixel = Pixel([0.0, 1.0, 0.0, 1.0]);
-    pub const CYAN: Pixel = Pixel([0.0, 1.0, 1.0, 1.0]);
-    pub const BLUE: Pixel = Pixel([0.0, 0.0, 1.0, 1.0]);
-    pub const MAGENTA: Pixel = Pixel([1.0, 0.0, 1.0, 1.0]);
+    pub const YELLOW: Pixel = Pixel([1.0, 0.75, 0.14, 1.0]);
+    pub const CYAN: Pixel = Pixel([0.22, 0.75, 1.0, 1.0]);
+    pub const BACKGROUND: Pixel = Pixel([0.0588, 0.0902, 0.165, 1.0]);
+    pub const LINES: Pixel = Pixel([0.141, 0.17, 0.25, 1.0]);
 
-    pub fn new(r: f64, g: f64, b: f64, alpha: f64) -> Pixel {
-        Pixel([r, g, b, alpha])
-    }
 
     pub fn to_ints(&self) -> [u8; 4] {
         [
@@ -29,18 +22,18 @@ impl Pixel {
         ]
     }
 
-    pub fn of_ints(v: [u8; 4]) -> Pixel {
-        Pixel([
-            v[0] as f64 / 255.0,
-            v[1] as f64 / 255.0,
-            v[2] as f64 / 255.0,
-            v[3] as f64 / 255.0,
-        ])
-    }
+    // pub fn of_ints(v: [u8; 4]) -> Pixel {
+    //     Pixel([
+    //         v[0] as f64 / 255.0,
+    //         v[1] as f64 / 255.0,
+    //         v[2] as f64 / 255.0,
+    //         v[3] as f64 / 255.0,
+    //     ])
+    // }
 
-    pub fn greyscale(x: f64) -> Pixel {
-        Pixel([x, x, x, 1.0])
-    }
+    // pub fn greyscale(x: f64) -> Pixel {
+    //     Pixel([x, x, x, 1.0])
+    // }
 }
 
 impl Index<usize> for Pixel {
