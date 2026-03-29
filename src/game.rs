@@ -75,16 +75,26 @@ impl Game {
                     // We don't care about these.
                     continue;
                 }
-                // let fast = board.can_current_player_force_two_step_win_fast(false);
-                // let slow = board.can_current_player_force_two_step_win();
-                // if fast != slow {
-                //     let fast = board.can_current_player_force_two_step_win_fast(print_debug);
-                //     imageio::print_board(board, Tactic::Test, "debug");
-                //     panic!("Fast and slow methods disagree on board! fast = {}, slow = {}", fast, slow);
-                // } else if fast {
-                //     out.push(board.to_owned());
-                // }
-                if board.can_current_player_force_two_step_win_fast(false) {
+                
+                if board.can_current_player_force_two_step_win(false) {
+                    out.push(board.to_owned());
+                }
+            }
+        }
+        
+        out
+    }
+
+    pub fn get_three_step_wins(&self) -> Vec<Board> {
+        let mut out = vec![];
+
+        for board in self.boards.iter() {
+            if board.moves_remaining == 2 && !board.is_won {
+                if board.can_current_player_win() {
+                    // We don't care about these.
+                    continue;
+                }
+                if board.can_current_player_force_three_step_win() {
                     out.push(board.to_owned());
                 }
             }

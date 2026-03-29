@@ -173,6 +173,58 @@ impl ImmediateThreatSet {
         self.singletons.len() >= 3
     }
 
+    /**
+     * If there are exactly two singletons, return them.
+     * Otherwise, return None.
+     */
+    pub fn get_the_exact_two_singletons(&self) -> Option<(Position, Position)> {
+        if self.singletons.len() == 2 {
+            Some((self.singletons[0], self.singletons[1]))
+        } else {
+            None
+        }
+    }
+
+    /**
+     * If there is exactly one singleton, return it.
+     * Otherwise, return None.
+     */
+    pub fn get_the_exact_one_singleton(&self) -> Option<Position> {
+        if self.singletons.len() == 1 {
+            Some(self.singletons[0])
+        } else {
+            None
+        }
+    }
+
+    /**
+     * Return a vec of those points which, by themselves, can block everything.
+     * There will be at most two of them.
+     */
+    pub fn get_all_blocking_points(&self) -> Vec<Position> {
+        if self.singletons.len() >= 2 {
+            vec![]
+        } else if self.singletons.len() == 1 {
+            if self.after_playing(self.singletons[0]).is_empty() {
+                vec![self.singletons[0]]
+            } else {
+                vec![]
+            }
+        } else if self.doubletons.is_empty() {
+            vec![]
+        } else {
+            let mut out = vec![];
+            let (p1, p2) = self.doubletons[0];
+            if self.after_playing(p1).is_empty() {
+                out.push(p1)
+            }
+            if self.after_playing(p2).is_empty() {
+                out.push(p2)
+            }
+            out
+        }
+    }
+
     pub fn get_first_doubleton(&self) -> Option<(Position, Position)> {
         self.doubletons.first().cloned()
     }
@@ -194,6 +246,10 @@ impl ImmediateThreatSet {
             }
         }
         out
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.singletons.is_empty() && self.doubletons.is_empty()
     }
 
     /**

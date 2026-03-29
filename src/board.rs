@@ -1,6 +1,7 @@
 use crate::direction::Direction;
 use crate::player::*;
 use crate::moves::*;
+use crate::position::Position;
 use crate::threats::*;
 
 const SIZE: usize = 101;
@@ -236,7 +237,7 @@ impl Board {
     //     false
     // }
 
-    fn can_current_player_block_all_threats_fast(&self, print_debug: bool) -> bool {
+    fn can_current_player_block_all_threats(&self, print_debug: bool) -> bool {
         let threats = self.get_threat_set(self.to_move.other()).get_all_immediate_threats();
         if print_debug {
             println!("Immediate threats:");
@@ -263,6 +264,52 @@ impl Board {
         } else {
             true
         }
+    }
+
+    /**
+     * If the current player requires two moves to block all threats, then return those moves.
+     * Otherwise, return None.
+     */
+    fn get_current_player_two_blocks(&self) -> Vec<(Position, Position)> {
+        let mut out = vec![];
+        let threats = self.get_threat_set(self.to_move.other()).get_all_immediate_threats();
+        if threats.has_at_least_three_singletons() {
+            return vec![];
+        } else if let Some((p1, p2)) = threats.get_the_exact_two_singletons() {
+            if threats.after_playing(p1).after_playing(p2).is_empty() {
+                return vec![(p1, p2)]
+            } else {
+                return vec![];
+            }
+        } else if let Some(p1) = threats.get_the_exact_one_singleton() {
+            let new_threats = threats.after_playing(p1);
+            if new_threats.is_empty() {
+                return vec![]
+            }
+            for p2 in new_threats.get_all_blocking_points() {
+                out.push((p1, p2));
+            }
+        } else if let Some((p1, p2)) = threats.get_first_doubleton() {
+            // There are no singletons, but there are doubletons.
+            let new_threats = threats.after_playing(p1);
+            if !new_threats.is_empty() {
+                for q in new_threats.get_all_blocking_points() {
+                    out.push((p1, q));
+                }
+            }
+            let new_threats = threats.after_playing(p2);
+            if !new_threats.is_empty() {
+                for q in new_threats.get_all_blocking_points() {
+                    if q != p1 {
+                        out.push((p2, q));
+                    }
+                }
+            }
+        } else {
+            // There's nothing to block.
+            return vec![];
+        }
+        out
     }
 
     /**
@@ -299,7 +346,7 @@ impl Board {
     //     false
     // }
 
-    pub fn can_current_player_force_two_step_win_fast(&self, print_debug: bool) -> bool {
+    pub fn can_current_player_force_two_step_win(&self, print_debug: bool) -> bool {
         let potential_moves = self.get_threat_set(self.to_move).get_all_preemptive_moves();
         if print_debug {
             println!("Potential moves:");
@@ -316,15 +363,70 @@ impl Board {
                 board_copy.make_move(&m1);
                 board_copy.make_move(&m2);
 
+                if board_copy.can_current_player_win() {
+                    // So much for those threats...
+                    continue
+                }
+
                 let print_debug = print_debug && ((p1.u == 4 && p1.v == -5) || (p1.u == 6 && p1.v == -7));
                 if print_debug {
                     println!("Testing moves ({}, {}) and ({}, {})", m1.get_u(), m1.get_v(), m2.get_u(), m2.get_v());
                 }
-                if !board_copy.can_current_player_block_all_threats_fast(print_debug) {
+                if !board_copy.can_current_player_block_all_threats(print_debug) {
                     return true
                 }
             }
         }
+        false
+    }
+
+    pub fn can_current_player_force_three_step_win(&self) -> bool {
+        let potential_moves = self.get_threat_set(self.to_move).get_all_preemptive_moves();
+        if self.can_current_player_win() || self.can_current_player_force_two_step_win(false) {
+            println!("Skipped as there's a 1 or 2-step win!");
+            return false
+        }
+        // let mut num_deeper = 0;
+        // println!("to_move = {:?}, moves_remaining = {}", self.to_move, self.moves_remaining);
+        for (i, p1) in potential_moves.iter().enumerate() {
+            for p2 in potential_moves.iter().skip(i + 1) {
+                // Play these two moves and then see if opponent can block all threats
+                let mut board_copy = self.to_owned();
+                let m1 = Move::of_position(self.to_move, *p1);
+                let m2 = Move::of_position(self.to_move, *p2);
+                board_copy.make_move(&m1);
+                board_copy.make_move(&m2);
+
+                if board_copy.can_current_player_win() {
+                    // So much for those threats...
+                    continue
+                }
+
+                let blocks = board_copy.get_current_player_two_blocks();
+                // Iterate over all moves the other player might make in response.
+                let mut win_always_forced = blocks.len() >= 1;
+                'iter_other: for (p3, p4) in blocks {
+                    let mut board_copy_copy = board_copy.to_owned();
+                    let m3 = Move::of_position(self.to_move.other(), p3);
+                    let m4 = Move::of_position(self.to_move.other(), p4);
+                    board_copy_copy.make_move(&m3);
+                    board_copy_copy.make_move(&m4);
+                    // num_deeper += 1;
+                    if !board_copy_copy.can_current_player_force_two_step_win(false) {
+                        win_always_forced = false;
+                        break 'iter_other
+                    }
+                }
+
+                if win_always_forced {
+                    println!("Moves are ({}, {}) and ({}, {})", m1.get_u(), m1.get_v(), m2.get_u(), m2.get_v());
+                    crate::imageio::print_board(&board_copy, crate::tactic::Tactic::Test, "debug");
+                    // println!("True! Num deeper = {}", num_deeper);
+                    return true
+                }
+            }
+        }
+        // println!("False! Num deeper = {}", num_deeper);
         false
     }
 }

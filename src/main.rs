@@ -34,6 +34,7 @@ fn get_input() -> String {
         "test" => test(),
         "1" | "one_move" => one_move(),
         "2" | "two_moves" => two_moves(args.get(0).map_or(false, |x| x.parse().unwrap())),
+        "3" => three_moves(),
         _ => println!("Unknown function {}", func)
     }
     let dur = start.elapsed();
@@ -80,6 +81,24 @@ fn two_moves(print_debug: bool) {
         let boards = game.get_two_step_wins(print_debug);
         for board in boards {
             imageio::print_board(&board, Tactic::TwoMoves, &format!("{:04}", i));
+            i += 1;
+        }
+        game_index += 1;
+    }
+}
+
+fn three_moves() {
+    let start = time::Instant::now();
+    let json = fileio::read_json("ten_games");
+    println!("Finished reading file. Time taken = {}", pretty_format_time(start.elapsed()));
+    let mut i = 0;
+    let mut game_index = 0;
+    for one_json in json.as_array().unwrap().iter() {
+        println!("Starting game {}", game_index);
+        let game = game::Game::from_json(one_json.to_owned());
+        let boards = game.get_three_step_wins();
+        for board in boards {
+            imageio::print_board(&board, Tactic::ThreeMoves, &format!("{:04}", i));
             i += 1;
         }
         game_index += 1;
