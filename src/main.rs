@@ -8,6 +8,8 @@ mod imageio;
 mod pixel;
 mod tactic;
 mod moves;
+mod threats;
+mod direction;
 
 use std::time;
 use std::io;
@@ -31,7 +33,7 @@ fn get_input() -> String {
     match func.to_lowercase().trim() {
         "test" => test(),
         "1" | "one_move" => one_move(),
-        "2" | "two_moves" => two_moves(),
+        "2" | "two_moves" => two_moves(args.get(0).map_or(false, |x| x.parse().unwrap())),
         _ => println!("Unknown function {}", func)
     }
     let dur = start.elapsed();
@@ -42,7 +44,7 @@ fn get_input() -> String {
 fn test() {
     let json = fileio::read_json("one_game");
     let game = game::Game::from_json(json);
-    let boards = game.get_two_step_wins();
+    let boards = game.get_two_step_wins(true);
     println!("Found {} winning boards", boards.len());
     if let Some(board) = boards.first() {
         imageio::print_board(board, Tactic::TwoMoves, "test");
@@ -66,17 +68,20 @@ fn one_move() {
     }
 }
 
-fn two_moves() {
+fn two_moves(print_debug: bool) {
     let start = time::Instant::now();
-    let json = fileio::read_json("games");
+    let json = fileio::read_json("ten_games");
     println!("Finished reading file. Time taken = {}", pretty_format_time(start.elapsed()));
     let mut i = 0;
+    let mut game_index = 0;
     for one_json in json.as_array().unwrap().iter() {
+        println!("Starting game {}", game_index);
         let game = game::Game::from_json(one_json.to_owned());
-        let boards = game.get_two_step_wins();
+        let boards = game.get_two_step_wins(print_debug);
         for board in boards {
             imageio::print_board(&board, Tactic::TwoMoves, &format!("{:04}", i));
             i += 1;
         }
+        game_index += 1;
     }
 }

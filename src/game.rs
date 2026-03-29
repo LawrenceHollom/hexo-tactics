@@ -66,7 +66,7 @@ impl Game {
      * Go through all the boards, and return those where the current
      * player has two moves remaining and, and can force a win next turn.
      */
-    pub fn get_two_step_wins(&self) -> Vec<Board> {
+    pub fn get_two_step_wins(&self, print_debug: bool) -> Vec<Board> {
         let mut out = vec![];
 
         for board in self.boards.iter() {
@@ -75,7 +75,16 @@ impl Game {
                     // We don't care about these.
                     continue;
                 }
-                if board.can_current_player_force_two_step_win() {
+                // let fast = board.can_current_player_force_two_step_win_fast(false);
+                // let slow = board.can_current_player_force_two_step_win();
+                // if fast != slow {
+                //     let fast = board.can_current_player_force_two_step_win_fast(print_debug);
+                //     imageio::print_board(board, Tactic::Test, "debug");
+                //     panic!("Fast and slow methods disagree on board! fast = {}, slow = {}", fast, slow);
+                // } else if fast {
+                //     out.push(board.to_owned());
+                // }
+                if board.can_current_player_force_two_step_win_fast(false) {
                     out.push(board.to_owned());
                 }
             }

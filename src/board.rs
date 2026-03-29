@@ -1,19 +1,21 @@
-use std::collections::HashSet;
-
+use crate::direction::Direction;
 use crate::player::*;
 use crate::moves::*;
+use crate::threats::*;
 
 const SIZE: usize = 101;
 
 const WIDTH_SCALE: i32 = 10;
 const HEIGHT_SCALE: i32 = 9;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Board {
     board: [[Option<Player>; SIZE]; SIZE],
     pub to_move: Player,
     pub moves_remaining: usize,
     mid: i32,
+    yellow_threats: ThreatSet,
+    blue_threats: ThreatSet,
     pub is_won: bool,
 }
 
@@ -33,6 +35,8 @@ impl Board {
             to_move: Player::Yellow,
             moves_remaining: 1,
             mid: (SIZE / 2) as i32,
+            yellow_threats: ThreatSet::new(),
+            blue_threats: ThreatSet::new(),
             is_won: false,
         }
     }
@@ -47,12 +51,44 @@ impl Board {
             panic!("Player {:?} made a move when it was {:?}'s turn", m.get_player(), self.to_move);
         }
         self.moves_remaining -= 1;
+
+        // Update threats.
+        self.get_threat_set_mut(self.to_move).on_friendly_move(m.get_position());
+        self.get_threat_set_mut(self.to_move.other()).on_enemy_move(m.get_position());
+
+        for dir in Direction::ALL {
+            for offset in -5..=0 {
+                let start = m.get_position().offset(dir, offset);
+                let su = start.get_normalised_u(self.mid);
+                let sv = start.get_normalised_v(self.mid);
+                let score = self.score_line(su, sv, dir, self.to_move);
+                if score == 1 {
+                    // This threat wouldn't have been present before.
+                    self.get_threat_set_mut(self.to_move).add_singleton(start, dir, m.get_position());
+                }
+            }
+        }
+
         if self.moves_remaining == 0 {
             if self.has_player_won(self.to_move) {
                 self.is_won = true;
             }
             self.to_move = self.to_move.other();
             self.moves_remaining = 2;
+        }
+    }
+
+    fn get_threat_set_mut(&mut self, player: Player) -> &mut ThreatSet {
+        match player {
+            Player::Yellow => &mut self.yellow_threats,
+            Player::Blue => &mut self.blue_threats,
+        }
+    }
+
+    fn get_threat_set(&self, player: Player) -> &ThreatSet {
+        match player {
+            Player::Yellow => &self.yellow_threats,
+            Player::Blue => &self.blue_threats,
         }
     }
 
@@ -77,7 +113,8 @@ impl Board {
      * +1 point for each friendly piece.
      * 0 if there is any enemy piece
      */
-    fn score_line(&self, u: usize, v: usize, du: i32, dv: i32, player: Player) -> u8 {
+    fn score_line(&self, u: usize, v: usize, dir: Direction, player: Player) -> u8 {
+        let (du, dv) = dir.to_vector();
         let mut score = 0;
         for i in 0..6 {
             let u = (u as i32 + du * i) as usize;
@@ -96,8 +133,8 @@ impl Board {
 
     fn get_max_score_line(&self, u: usize, v: usize, player: Player) -> u8 {
         let mut max_score = 0;
-        for (du, dv) in [(1, 0), (0, 1), (-1, 1)] {
-            let score = self.score_line(u, v, du, dv, player);
+        for dir in Direction::POSITIVE {
+            let score = self.score_line(u, v, dir, player);
             if score > max_score {
                 max_score = score;
             }
@@ -105,28 +142,30 @@ impl Board {
         max_score
     }
 
-    fn get_max_score_line_omnidirectional(&self, u: usize, v: usize, player: Player) -> u8 {
-        let mut max_score = 0;
-        for (du, dv) in [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)] {
-            let score = self.score_line(u, v, du, dv, player);
-            if score > max_score {
-                max_score = score;
-            }
-        }
-        max_score
-    }
+    // fn get_max_score_line_omnidirectional(&self, u: usize, v: usize, player: Player) -> u8 {
+    //     let mut max_score = 0;
+    //     for dir in Direction::ALL {
+    //         let score = self.score_line(u, v, dir, player);
+    //         if score > max_score {
+    //             max_score = score;
+    //         }
+    //     }
+    //     max_score
+    // }
 
     pub fn can_current_player_win(&self) -> bool {
-        for (v, row) in self.board.iter().enumerate() {
-            for (u, piece) in row.iter().enumerate() {
-                if piece.map_or(false, |x| x.eq(&self.to_move)) {
-                    if self.get_max_score_line(u, v, self.to_move) >= 4 {
-                        return true
-                    }
-                }
-            }
-        }
-        false
+        self.get_threat_set(self.to_move).get_best_threat_size() <= 2
+
+        // for (v, row) in self.board.iter().enumerate() {
+        //     for (u, piece) in row.iter().enumerate() {
+        //         if piece.map_or(false, |x| x.eq(&self.to_move)) {
+        //             if self.get_max_score_line(u, v, self.to_move) >= 4 {
+        //                 return true
+        //             }
+        //         }
+        //     }
+        // }
+        // false
     }
 
     pub fn has_player_won(&self, player: Player) -> bool {
@@ -147,82 +186,141 @@ impl Board {
      * cells with which the threats could be blocked, without needing to
      * make board copies etc.
      */
-    pub fn can_current_player_block_all_threats(&self) -> bool {
-        let mut blocking_moves: HashSet<Move> = HashSet::new();
+    // pub fn can_current_player_block_all_threats(&self) -> bool {
+    //     let mut blocking_moves: HashSet<Move> = HashSet::new();
 
-        for v in 0..SIZE {
-            for u in 0..SIZE {
-                for (du, dv) in [(1, 0), (0, 1), (-1, 1)] {
-                    if self.score_line(u, v, du, dv, self.to_move.other()) >= 4 {
-                        for i in 0..6 {
-                            let su = (u as i32 + i * du) as usize;
-                            let sv = (v as i32 + i * dv) as usize;
-                            if self.board[sv][su].is_none() {
-                                let m = Move::new_unnormalised(self.to_move, su, sv, self.mid);
-                                blocking_moves.insert(m);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    //     for v in 0..SIZE {
+    //         for u in 0..SIZE {
+    //             for dir in Direction::POSITIVE {
+    //                 if self.score_line(u, v, dir, self.to_move.other()) >= 4 {
+    //                     for i in 0..6 {
+    //                         let (du, dv) = dir.to_vector();
+    //                         let su = (u as i32 + i * du) as usize;
+    //                         let sv = (v as i32 + i * dv) as usize;
+    //                         if self.board[sv][su].is_none() {
+    //                             let m = Move::new_unnormalised(self.to_move, su, sv, self.mid);
+    //                             blocking_moves.insert(m);
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
 
-        let blocking_moves = blocking_moves.iter().collect::<Vec<_>>();
+    //     let blocking_moves = blocking_moves.iter().collect::<Vec<_>>();
 
-        // println!("Blocking moves:");
-        // for m in blocking_moves.iter() {
-        //     print!(" [{}, {}]", m.get_u(), m.get_v());
-        // }
-        // println!();
+    //     // println!("Blocking moves:");
+    //     // for m in blocking_moves.iter() {
+    //     //     print!(" [{}, {}]", m.get_u(), m.get_v());
+    //     // }
+    //     // println!();
 
-        if blocking_moves.len() <= 2 {
-            // If there are at most two blocking moves, then we play them.
-            return true
-        }
+    //     if blocking_moves.len() <= 2 {
+    //         // If there are at most two blocking moves, then we play them.
+    //         return true
+    //     }
 
         
-        // If *any* pair of moves blocks, then the player can block.
-        for (i, m1) in blocking_moves.iter().enumerate() {
-            for m2 in blocking_moves.iter().skip(i + 1) {
-                // Play these two moves and then see if opponent can win
-                let mut board_copy = self.to_owned();
-                board_copy.make_move(m1);
-                board_copy.make_move(m2);
-                if !board_copy.can_current_player_win() {
-                    return true
-                }
-            }
+    //     // If *any* pair of moves blocks, then the player can block.
+    //     for (i, m1) in blocking_moves.iter().enumerate() {
+    //         for m2 in blocking_moves.iter().skip(i + 1) {
+    //             // Play these two moves and then see if opponent can win
+    //             let mut board_copy = self.to_owned();
+    //             board_copy.make_move(m1);
+    //             board_copy.make_move(m2);
+    //             if !board_copy.can_current_player_win() {
+    //                 return true
+    //             }
+    //         }
+    //     }
+    //     false
+    // }
+
+    fn can_current_player_block_all_threats_fast(&self, print_debug: bool) -> bool {
+        let threats = self.get_threat_set(self.to_move.other()).get_all_immediate_threats();
+        if print_debug {
+            println!("Immediate threats:");
+            threats.print();
         }
-        false
+        if threats.has_at_least_three_singletons() {
+            false
+        } else if let Some((p1, p2)) = threats.get_first_doubleton() {
+            if print_debug && p1.u == 4 && p1.v == -5 {
+                threats.print();
+            }
+            // Try playing p1.
+            let remaining_threats = threats.after_playing(p1);
+            if remaining_threats.is_star() {
+                return true
+            }
+            // Try playing p2
+            let remaining_threats = threats.after_playing(p2);
+            if remaining_threats.is_star() {
+                return true
+            }
+            // If neither worked, then the player can't block.
+            false
+        } else {
+            true
+        }
     }
 
     /**
      * We can't just interate over everything as that would be too slow.
      * We check for preemptives, and start cashing them in.
      */
-    pub fn can_current_player_force_two_step_win(&self) -> bool {
-        let mut preemptive_gaps = vec![];
-        for (v, row) in self.board.iter().enumerate() {
-            for (u, piece) in row.iter().enumerate() {
-                if piece.is_none() {
-                    if self.get_max_score_line_omnidirectional(u, v, self.to_move) >= 2 {
-                        let m = Move::new_unnormalised(self.to_move, u, v, self.mid);
-                        // println!("Found preemptive gap at {}, {}", m.get_u(), m.get_v());
-                        preemptive_gaps.push(m);
-                    }
-                }
+    // pub fn can_current_player_force_two_step_win(&self) -> bool {
+    //     let mut preemptive_gaps = vec![];
+    //     for (v, row) in self.board.iter().enumerate() {
+    //         for (u, piece) in row.iter().enumerate() {
+    //             if piece.is_none() {
+    //                 if self.get_max_score_line_omnidirectional(u, v, self.to_move) >= 2 {
+    //                     let m = Move::new_unnormalised(self.to_move, u, v, self.mid);
+    //                     // println!("Found preemptive gap at {}, {}", m.get_u(), m.get_v());
+    //                     preemptive_gaps.push(m);
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     // crate::imageio::print_board(self, crate::tactic::Tactic::TwoMoves, "debug1");
+    //     for (i, m1) in preemptive_gaps.iter().enumerate() {
+    //         for m2 in preemptive_gaps.iter().skip(i + 1) {
+    //             // Play these two moves and then see if opponent can block all threats
+    //             let mut board_copy = self.to_owned();
+    //             board_copy.make_move(m1);
+    //             board_copy.make_move(m2);
+    //             if !board_copy.can_current_player_block_all_threats() {
+    //                 // println!("Found winning pair: ({}, {}), ({}, {})", m1.get_u(), m1.get_v(), m2.get_u(), m2.get_v());
+    //                 // crate::imageio::print_board(&board_copy, crate::tactic::Tactic::TwoMoves, "debug2");
+    //                 return true
+    //             }
+    //         }
+    //     }
+    //     false
+    // }
+
+    pub fn can_current_player_force_two_step_win_fast(&self, print_debug: bool) -> bool {
+        let potential_moves = self.get_threat_set(self.to_move).get_all_preemptive_moves();
+        if print_debug {
+            println!("Potential moves:");
+            for m in potential_moves.iter() {
+                println!("  ({}, {})", m.u, m.v);
             }
         }
-        // crate::imageio::print_board(self, crate::tactic::Tactic::TwoMoves, "debug1");
-        for (i, m1) in preemptive_gaps.iter().enumerate() {
-            for m2 in preemptive_gaps.iter().skip(i + 1) {
+        for (i, p1) in potential_moves.iter().enumerate() {
+            for p2 in potential_moves.iter().skip(i + 1) {
                 // Play these two moves and then see if opponent can block all threats
                 let mut board_copy = self.to_owned();
-                board_copy.make_move(m1);
-                board_copy.make_move(m2);
-                if !board_copy.can_current_player_block_all_threats() {
-                    // println!("Found winning pair: ({}, {}), ({}, {})", m1.get_u(), m1.get_v(), m2.get_u(), m2.get_v());
-                    // crate::imageio::print_board(&board_copy, crate::tactic::Tactic::TwoMoves, "debug2");
+                let m1 = Move::of_position(self.to_move, *p1);
+                let m2 = Move::of_position(self.to_move, *p2);
+                board_copy.make_move(&m1);
+                board_copy.make_move(&m2);
+
+                let print_debug = print_debug && ((p1.u == 4 && p1.v == -5) || (p1.u == 6 && p1.v == -7));
+                if print_debug {
+                    println!("Testing moves ({}, {}) and ({}, {})", m1.get_u(), m1.get_v(), m2.get_u(), m2.get_v());
+                }
+                if !board_copy.can_current_player_block_all_threats_fast(print_debug) {
                     return true
                 }
             }

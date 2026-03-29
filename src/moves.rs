@@ -23,6 +23,10 @@ impl Move {
         }
     }
 
+    pub fn of_position(player: Player, position: Position) -> Move {
+        Move { player, position }
+    }
+
     pub fn get_u(&self) -> i32 {
         self.position.u
     }
@@ -33,6 +37,10 @@ impl Move {
 
     pub fn get_player(&self) -> Player {
         self.player
+    }
+
+    pub fn get_position(&self) -> Position {
+        self.position
     }
 
     pub fn print(&self) {
