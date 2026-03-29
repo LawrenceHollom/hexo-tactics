@@ -89,7 +89,7 @@ fn two_moves(print_debug: bool) {
 
 fn three_moves() {
     let start = time::Instant::now();
-    let json = fileio::read_json("ten_games");
+    let json = fileio::read_json("games");
     println!("Finished reading file. Time taken = {}", pretty_format_time(start.elapsed()));
     let mut i = 0;
     let mut game_index = 0;

@@ -292,13 +292,19 @@ impl Board {
         } else if let Some((p1, p2)) = threats.get_first_doubleton() {
             // There are no singletons, but there are doubletons.
             let new_threats = threats.after_playing(p1);
-            if !new_threats.is_empty() {
+            if new_threats.is_empty() {
+                // There's a way of blocking everything in one.
+                return vec![]
+            } else {
                 for q in new_threats.get_all_blocking_points() {
                     out.push((p1, q));
                 }
             }
             let new_threats = threats.after_playing(p2);
-            if !new_threats.is_empty() {
+            if new_threats.is_empty() {
+                // There's a way of blocking everything in one.
+                return vec![]
+            } else {
                 for q in new_threats.get_all_blocking_points() {
                     if q != p1 {
                         out.push((p2, q));
@@ -383,7 +389,7 @@ impl Board {
     pub fn can_current_player_force_three_step_win(&self) -> bool {
         let potential_moves = self.get_threat_set(self.to_move).get_all_preemptive_moves();
         if self.can_current_player_win() || self.can_current_player_force_two_step_win(false) {
-            println!("Skipped as there's a 1 or 2-step win!");
+            // println!("Skipped as there's a 1 or 2-step win!");
             return false
         }
         // let mut num_deeper = 0;
@@ -403,14 +409,19 @@ impl Board {
                 }
 
                 let blocks = board_copy.get_current_player_two_blocks();
+                // let imms = board_copy.blue_threats.get_all_immediate_threats();
                 // Iterate over all moves the other player might make in response.
                 let mut win_always_forced = blocks.len() >= 1;
+                // let mut i = 0;
+                // let blocks_len = blocks.len();
                 'iter_other: for (p3, p4) in blocks {
                     let mut board_copy_copy = board_copy.to_owned();
                     let m3 = Move::of_position(self.to_move.other(), p3);
                     let m4 = Move::of_position(self.to_move.other(), p4);
                     board_copy_copy.make_move(&m3);
                     board_copy_copy.make_move(&m4);
+                    // crate::imageio::print_board(&board_copy_copy, crate::tactic::Tactic::Test, &format!("debug{}", i));
+                    // i += 1;
                     // num_deeper += 1;
                     if !board_copy_copy.can_current_player_force_two_step_win(false) {
                         win_always_forced = false;
@@ -419,8 +430,9 @@ impl Board {
                 }
 
                 if win_always_forced {
-                    println!("Moves are ({}, {}) and ({}, {})", m1.get_u(), m1.get_v(), m2.get_u(), m2.get_v());
-                    crate::imageio::print_board(&board_copy, crate::tactic::Tactic::Test, "debug");
+                    // println!("Moves are ({}, {}) and ({}, {}). Blocks.len = {}", m1.get_u(), m1.get_v(), m2.get_u(), m2.get_v(), blocks_len);
+                    // imms.print();
+                    // crate::imageio::print_board(&board_copy, crate::tactic::Tactic::Test, "debug");
                     // println!("True! Num deeper = {}", num_deeper);
                     return true
                 }
