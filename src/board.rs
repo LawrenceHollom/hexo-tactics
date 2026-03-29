@@ -1,5 +1,7 @@
+use std::collections::HashSet;
+
 use crate::player::*;
-use crate::game::*;
+use crate::moves::*;
 
 const SIZE: usize = 101;
 
@@ -92,19 +94,35 @@ impl Board {
         score
     }
 
+    fn get_max_score_line(&self, u: usize, v: usize, player: Player) -> u8 {
+        let mut max_score = 0;
+        for (du, dv) in [(1, 0), (0, 1), (-1, 1)] {
+            let score = self.score_line(u, v, du, dv, player);
+            if score > max_score {
+                max_score = score;
+            }
+        }
+        max_score
+    }
+
+    fn get_max_score_line_omnidirectional(&self, u: usize, v: usize, player: Player) -> u8 {
+        let mut max_score = 0;
+        for (du, dv) in [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)] {
+            let score = self.score_line(u, v, du, dv, player);
+            if score > max_score {
+                max_score = score;
+            }
+        }
+        max_score
+    }
+
     pub fn can_current_player_win(&self) -> bool {
         for (v, row) in self.board.iter().enumerate() {
             for (u, piece) in row.iter().enumerate() {
                 if piece.map_or(false, |x| x.eq(&self.to_move)) {
-                    if self.score_line(u, v, 1, 0, self.to_move) >= 4 {
+                    if self.get_max_score_line(u, v, self.to_move) >= 4 {
                         return true
                     }
-                    if self.score_line(u, v, 0, 1, self.to_move) >= 4 {
-                        return true
-                    }
-                    if self.score_line(u, v, -1, 1, self.to_move) >= 4 {
-                        return true
-                    } 
                 }
             }
         }
@@ -114,16 +132,64 @@ impl Board {
     pub fn has_player_won(&self, player: Player) -> bool {
         for (v, row) in self.board.iter().enumerate() {
             for (u, piece) in row.iter().enumerate() {
-                if piece.map_or(false, |x| x.eq(&self.to_move)) {
-                    if self.score_line(u, v, 1, 0, player) >= 6 {
+                if piece.map_or(false, |x| x.eq(&player)) {
+                    if self.get_max_score_line(u, v, player) >= 6 {
                         return true
                     }
-                    if self.score_line(u, v, 0, 1, player) >= 6 {
-                        return true
+                }
+            }
+        }
+        false
+    }
+
+    /**
+     * This could be heavily optimised to just track the threats, and the
+     * cells with which the threats could be blocked, without needing to
+     * make board copies etc.
+     */
+    pub fn can_current_player_block_all_threats(&self) -> bool {
+        let mut blocking_moves: HashSet<Move> = HashSet::new();
+
+        for v in 0..SIZE {
+            for u in 0..SIZE {
+                for (du, dv) in [(1, 0), (0, 1), (-1, 1)] {
+                    if self.score_line(u, v, du, dv, self.to_move.other()) >= 4 {
+                        for i in 0..6 {
+                            let su = (u as i32 + i * du) as usize;
+                            let sv = (v as i32 + i * dv) as usize;
+                            if self.board[sv][su].is_none() {
+                                let m = Move::new_unnormalised(self.to_move, su, sv, self.mid);
+                                blocking_moves.insert(m);
+                            }
+                        }
                     }
-                    if self.score_line(u, v, -1, 1, player) >= 6 {
-                        return true
-                    } 
+                }
+            }
+        }
+
+        let blocking_moves = blocking_moves.iter().collect::<Vec<_>>();
+
+        // println!("Blocking moves:");
+        // for m in blocking_moves.iter() {
+        //     print!(" [{}, {}]", m.get_u(), m.get_v());
+        // }
+        // println!();
+
+        if blocking_moves.len() <= 2 {
+            // If there are at most two blocking moves, then we play them.
+            return true
+        }
+
+        
+        // If *any* pair of moves blocks, then the player can block.
+        for (i, m1) in blocking_moves.iter().enumerate() {
+            for m2 in blocking_moves.iter().skip(i + 1) {
+                // Play these two moves and then see if opponent can win
+                let mut board_copy = self.to_owned();
+                board_copy.make_move(m1);
+                board_copy.make_move(m2);
+                if !board_copy.can_current_player_win() {
+                    return true
                 }
             }
         }
@@ -135,6 +201,32 @@ impl Board {
      * We check for preemptives, and start cashing them in.
      */
     pub fn can_current_player_force_two_step_win(&self) -> bool {
+        let mut preemptive_gaps = vec![];
+        for (v, row) in self.board.iter().enumerate() {
+            for (u, piece) in row.iter().enumerate() {
+                if piece.is_none() {
+                    if self.get_max_score_line_omnidirectional(u, v, self.to_move) >= 2 {
+                        let m = Move::new_unnormalised(self.to_move, u, v, self.mid);
+                        // println!("Found preemptive gap at {}, {}", m.get_u(), m.get_v());
+                        preemptive_gaps.push(m);
+                    }
+                }
+            }
+        }
+        // crate::imageio::print_board(self, crate::tactic::Tactic::TwoMoves, "debug1");
+        for (i, m1) in preemptive_gaps.iter().enumerate() {
+            for m2 in preemptive_gaps.iter().skip(i + 1) {
+                // Play these two moves and then see if opponent can block all threats
+                let mut board_copy = self.to_owned();
+                board_copy.make_move(m1);
+                board_copy.make_move(m2);
+                if !board_copy.can_current_player_block_all_threats() {
+                    // println!("Found winning pair: ({}, {}), ({}, {})", m1.get_u(), m1.get_v(), m2.get_u(), m2.get_v());
+                    // crate::imageio::print_board(&board_copy, crate::tactic::Tactic::TwoMoves, "debug2");
+                    return true
+                }
+            }
+        }
         false
     }
 }

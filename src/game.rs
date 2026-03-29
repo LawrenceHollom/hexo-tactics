@@ -3,14 +3,8 @@ use serde_json::Value;
 use crate::board::Board;
 use crate::imageio;
 use crate::player::*;
-use crate::position::*;
+use crate::moves::*;
 use crate::tactic::Tactic;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Move {
-    player: Player,
-    position: Position,
-}
 
 pub struct Game {
     moves: Vec<Move>,
@@ -19,27 +13,6 @@ pub struct Game {
 
 fn get_player(players: &Vec<Value>, index: usize) -> String {
     players[index].get("playerId").unwrap().as_str().unwrap().to_owned()
-}
-
-impl Move {
-    pub fn new(player: Player, x: i32, y: i32) -> Move {
-        Move { 
-            player, 
-            position: Position::new(x, y),
-        }
-    }
-
-    pub fn get_u(&self) -> i32 {
-        self.position.u
-    }
-
-    pub fn get_v(&self) -> i32 {
-        self.position.v
-    }
-
-    pub fn get_player(&self) -> Player {
-        self.player
-    }
 }
 
 impl Game {
@@ -61,9 +34,9 @@ impl Game {
             } else {
                 panic!("Unknown player {}", player);
             };
-            let x = m.get("x").unwrap().as_number().unwrap().as_i64().unwrap() as i32;
-            let y = m.get("y").unwrap().as_number().unwrap().as_i64().unwrap() as i32;
-            let m = Move::new(player, x, y);
+            let u = m.get("x").unwrap().as_number().unwrap().as_i64().unwrap() as i32;
+            let v = m.get("y").unwrap().as_number().unwrap().as_i64().unwrap() as i32;
+            let m = Move::new(player, u, v);
             board.make_move(&m);
             moves.push(m);
             boards.push(board.to_owned());
@@ -113,7 +86,7 @@ impl Game {
 
     pub fn print(&self) {
         for m in &self.moves {
-            println!("{:?} at ({}, {})", m.player, m.position.u, m.position.v);
+            m.print();
         }
         self.boards.last().map(|b| imageio::print_board(b, Tactic::Test, "test"));
     }

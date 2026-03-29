@@ -7,6 +7,7 @@ mod position;
 mod imageio;
 mod pixel;
 mod tactic;
+mod moves;
 
 use std::time;
 use std::io;
@@ -29,8 +30,8 @@ fn get_input() -> String {
     let (func, args) = parse_function_like(text.as_str());
     match func.to_lowercase().trim() {
         "test" => test(),
-        "one_move" => one_move(),
-        "two_moves" => two_moves(),
+        "1" | "one_move" => one_move(),
+        "2" | "two_moves" => two_moves(),
         _ => println!("Unknown function {}", func)
     }
     let dur = start.elapsed();
@@ -41,6 +42,11 @@ fn get_input() -> String {
 fn test() {
     let json = fileio::read_json("one_game");
     let game = game::Game::from_json(json);
+    let boards = game.get_two_step_wins();
+    println!("Found {} winning boards", boards.len());
+    if let Some(board) = boards.first() {
+        imageio::print_board(board, Tactic::TwoMoves, "test");
+    }
     game.print();
 }
 
@@ -61,7 +67,9 @@ fn one_move() {
 }
 
 fn two_moves() {
+    let start = time::Instant::now();
     let json = fileio::read_json("games");
+    println!("Finished reading file. Time taken = {}", pretty_format_time(start.elapsed()));
     let mut i = 0;
     for one_json in json.as_array().unwrap().iter() {
         let game = game::Game::from_json(one_json.to_owned());
